@@ -6,41 +6,22 @@
   <meta name="color-scheme" content="dark">
   <title>Local Crypto Scanner</title>
   <link rel="stylesheet" href="styles.css">
-  <script defer src="config.js"></script>
-  <script defer src="core.js"></script>
-  <script defer src="storage.js"></script>
-  <script defer src="app.js"></script>
+  <script defer src="config.js"></script><script defer src="core.js"></script>
+  <script defer src="storage.js"></script><script defer src="app.js"></script>
 </head>
-<body>
-  <main>
-    <header>
-      <div><p class="eyebrow">PUBLIC BYBIT DATA · READ ONLY</p><h1>Market Scanner <span>V1</span></h1></div>
-      <button id="clear-data" type="button">Clear local data</button>
-    </header>
-
-    <div id="warning" class="warning" role="alert">MARKET DATA DISCONNECTED</div>
-
-    <section class="status-grid" aria-label="Feed status">
-      <div><span>Connection</span><strong id="connection" class="badge bad">STARTING</strong></div>
-      <div><span>Latest market data</span><strong id="latest-time">—</strong></div>
-      <div><span>Current data age</span><strong id="data-age">—</strong></div>
-      <div><span>Mode</span><strong>Paper monitoring</strong></div>
-    </section>
-
-    <p id="bootstrap" class="bootstrap">Preparing closed-candle history…</p>
-    <section class="panel table-wrap" aria-labelledby="market-heading">
-      <h2 id="market-heading">USDT perpetual markets</h2>
-      <table>
-        <thead><tr><th>Market</th><th>Current price</th><th>24h</th><th>Closed 5m</th><th>Closed 15m</th><th>Closed 1h</th><th>Last update</th></tr></thead>
-        <tbody id="markets"></tbody>
-      </table>
-    </section>
-
-    <section class="panel events-panel" aria-labelledby="events-heading">
-      <div class="section-title"><h2 id="events-heading">Local event log</h2><span>Stored only in this browser</span></div>
-      <ul id="events" class="events"></ul>
-    </section>
-    <footer>No API key · No account connection · No orders · No AI inference</footer>
-  </main>
-</body>
-</html>
+<body><main>
+  <header><div><p class="eyebrow">PUBLIC KRAKEN SPOT DATA · READ ONLY</p><h1>Market Scanner <span>V1.1</span></h1></div><button id="clear-data" type="button">Clear local data</button></header>
+  <div id="warning" class="warning" role="alert">MARKET DATA DISCONNECTED</div>
+  <section class="status-grid" aria-label="Feed status">
+    <div><span>Connection</span><strong id="connection" class="badge bad">STARTING</strong></div>
+    <div><span>Latest market data</span><strong id="latest-time">—</strong></div>
+    <div><span>Current data age</span><strong id="data-age">—</strong></div>
+    <div><span>Mode</span><strong>Read-only monitoring</strong></div>
+  </section>
+  <p id="bootstrap" class="bootstrap">Preparing closed-candle history…</p>
+  <section class="panel table-wrap" aria-labelledby="market-heading"><h2 id="market-heading">Kraken USD spot markets</h2>
+    <table><thead><tr><th>Market</th><th>Current price</th><th>24h</th><th>Closed 5m</th><th>Closed 15m</th><th>Closed 1h</th><th>Last update</th></tr></thead><tbody id="markets"></tbody></table>
+  </section>
+  <section class="panel events-panel" aria-labelledby="events-heading"><div class="section-title"><h2 id="events-heading">Local event log</h2><span>Stored only in this browser</span></div><ul id="events" class="events"></ul></section>
+  <footer>No API key · No account connection · No orders · No strategy signals · No AI inference</footer>
+</main></body></html>

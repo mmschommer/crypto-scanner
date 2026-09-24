@@ -1,74 +1,51 @@
-# Local Cryptocurrency Market Scanner — Version 1
+# Local Cryptocurrency Market Scanner — Version 1.1
 
-A zero-install, read-only browser dashboard for Bybit public USDT perpetual market data. It monitors BTC, ETH, SOL, XRP, and SUI using 5-minute, 15-minute, and 1-hour candles. It needs no API key, account, paid service, package manager, runtime installation, build step, or command line.
+A zero-install, read-only browser dashboard for Kraken public USD spot data. It monitors BTC/USD, ETH/USD, SOL/USD, XRP/USD, and SUI/USD while keeping the dashboard labels short. It needs no API key, account, paid service, package manager, runtime, build step, command line, or local server.
 
-The scanner performs paper monitoring only. It has no brokerage connection, order execution, trading signals, OpenAI API calls, or AI inference.
+This is market monitoring only: there is no brokerage connection, authentication, trade execution, strategy signal, OpenAI API call, or AI inference.
 
-## Open it — no installation
+## Open it locally — no installation
 
-### Option A: open the file directly
+1. Download or clone the repository (a GitHub ZIP is fine).
+2. Extract the ZIP if needed.
+3. Double-click `index.html`, or choose **Open With** and select a current browser.
+4. Leave the tab open while monitoring; close it to stop.
 
-1. Download or clone this repository using GitHub's normal web interface. A ZIP download is fine.
-2. If downloaded as a ZIP, extract it.
-3. Double-click `index.html` (or use **Open With** and choose a current browser).
-4. Leave the tab open while monitoring.
-5. Close the tab to stop the scanner.
+Do not start a local server. Classic scripts allow application files to load directly from `file://`. The Kraken WebSocket will still be attempted if the browser blocks cross-origin REST requests. In that case the dashboard displays an honest history warning and does not claim that bootstrap succeeded.
 
-There is nothing to install and no local server to start. The application uses classic scripts rather than JavaScript modules specifically so its own files can load from `file://`.
+Browser security settings, extensions, or corporate network policies can also block WebSocket traffic. The dashboard exposes disconnection, staleness, REST failures, and the exact market/channel for subscription failures rather than silently ignoring them.
 
-### Option B: GitHub Pages if the browser blocks `file://` market data
+## Data sources and behavior
 
-Browser security, privacy extensions, corporate policies, or Bybit regional controls can reject cross-origin REST or WebSocket traffic from a local-file (`null`) origin. The application reports this honestly as a history or connection warning. If that happens, use GitHub Pages—the simplest zero-install hosted option already built into GitHub:
+The app uses only Kraken's unauthenticated public endpoints:
 
-1. Push this existing branch to GitHub.
-2. In the repository on GitHub, open **Settings → Pages**.
-3. Under **Build and deployment**, choose **Deploy from a branch**.
-4. Select this branch, select the **`/ (root)`** folder, and click **Save**.
-5. Open the HTTPS address GitHub displays after deployment (normally `https://<owner>.github.io/<repository>/`).
+- Spot WebSocket API v2 at `wss://ws.kraken.com/v2`: ticker last price, 24-hour percentage change and timestamp, plus 5-, 15-, and 60-minute OHLC updates.
+- REST OHLC at `https://api.kraken.com/0/public/OHLC`: recent history for every market and interval, requested with `assetVersion=1`.
 
-This requires no local web server, runtime, package manager, or paid service. GitHub Pages serves the same static files over HTTPS. Network access to Bybit is still required, and Bybit may be unavailable in some regions.
+Kraken documents the final REST OHLC row as the current, not-yet-committed candle, so Version 1.1 always removes that final row before adding history. A WebSocket OHLC update is also never assumed to be closed. Each market/timeframe has a separate forming candle. Updates for its interval replace it; only an update with a later `interval_begin` finalizes and persists the prior candle.
 
-## What the dashboard shows
+Completed histories are chronological, deduplicated by interval start, and bounded to 200 entries by default. Histories and a bounded event log stay in this browser's `localStorage`. **Clear local data** removes only this app's saved history and log, then reloads.
 
-For each configured market:
+## Resilience and status
 
-- current public ticker price and 24-hour percentage change;
-- most recent finalized 5m, 15m, and 1h candle close;
-- latest ticker update time;
-- overall connection state, latest market-data time, and current data age.
+The dashboard shows connection state, latest market-data time, market-data age, REST bootstrap status, and local events. Market freshness and socket health use separate timestamps: ticker/OHLC messages update both, while Kraken status, subscription acknowledgments, heartbeats, and pong messages update socket activity only. A quiet market can therefore display **STALE MARKET DATA** without being called disconnected. Automatic reconnect with bounded exponential backoff resets a socket only when the socket itself is silent after twice the configured stale threshold.
 
-A prominent warning appears when the socket is disconnected or data becomes stale. The client sends Bybit JSON heartbeat pings, reconnects automatically with bounded exponential backoff, and resets a silent connection when no market data arrives.
+## Files
 
-## Closed-candle correctness
+- `config.js` — display/exchange symbols, intervals, public endpoints, and limits.
+- `core.js` — pure Kraken parsing, forming-candle transitions, history, and freshness logic.
+- `storage.js` — browser-local persistence and bounded event logging.
+- `app.js` — Kraken REST/WebSocket transport and dashboard controller.
+- `index.html` and `styles.css` — accessible static dashboard.
+- `tests.js` and `tests.html` — direct-open browser tests.
 
-- WebSocket klines enter completed history only when Bybit supplies `confirm === true`.
-- REST bootstrap candles enter history only when the response's Bybit server timestamp is at or beyond the candle's calculated end.
-- Histories are chronological, deduplicated by candle start time, and bounded to 200 candles by default.
+## Run tests — no installation
 
-Historical candles and a bounded event log are stored in this browser's `localStorage`. **Clear local data** deletes only this application's locally saved candles and logs, then reloads the page. It does not affect Bybit or any account.
-
-## Configuration and architecture
-
-`config.js` contains the symbols, timeframes, endpoints, stale threshold, heartbeat timing, history limit, reconnect cap, and local-log limit. All endpoints are public and unauthenticated.
-
-The code is intentionally separated:
-
-- `core.js` — pure candle parsing, finalization, history, and freshness logic;
-- `storage.js` — browser-local history and event-log persistence;
-- `app.js` — Bybit REST/WebSocket transport and dashboard controller;
-- `index.html` and `styles.css` — accessible presentation;
-- `tests.js` and `tests.html` — browser-compatible tests.
-
-Future deterministic strategy modules can be added separately for swing highs/lows, liquidity sweeps, break of structure, retests, VWAP, volume filters, risk/reward, or paper trades. Candidate-only Codex review may be designed later; it is not present or invoked in Version 1.
-
-## Run the tests — no installation
-
-Double-click `tests.html`. The page runs the browser-compatible suite and shows a green result for each test. It covers confirmed versus unconfirmed candles, duplicate prevention, chronological ordering, bounded histories, stale-data calculation, and the REST close boundary.
+Double-click `tests.html`. A green **15/15 tests passed** confirms ticker and OHLC parsing, forming-candle handling, exactly-once finalization, deduplication, ordering, bounds, exclusion of the final REST row, market freshness, and independent socket-health behavior. The tests use local fixtures and make no network requests.
 
 ## Privacy and limitations
 
-- The browser connects only to the public Bybit URLs in `config.js`; there are no credentials.
-- Data and event logs remain in the current browser profile's local storage.
-- Clearing site data, private browsing, or changing browser profiles removes persisted history.
-- The scanner must bootstrap again after local data is cleared.
-- Public endpoint availability, CORS policy, WebSocket policy, browser extensions, and regional availability remain outside this static application's control.
+- Only public Kraken market-data endpoints are contacted; there are no credentials.
+- Data and events remain in the current browser profile's local storage.
+- Clearing site data, private browsing, or changing profiles removes saved history.
+- Public endpoint availability, browser CORS/WebSocket policies, extensions, and network policy are outside this static app's control.

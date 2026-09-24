@@ -2,36 +2,49 @@
 (function (global) {
   "use strict";
 
+  function timestamp(value) {
+    if (typeof value === "number") return value;
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : Number(value);
+  }
+
   function normalizeCandle(value) {
     return {
-      start: Number(value.start),
-      open: Number(value.open),
-      high: Number(value.high),
-      low: Number(value.low),
-      close: Number(value.close),
-      volume: Number(value.volume),
-      turnover: Number(value.turnover)
+      start: timestamp(value.start),
+      open: Number(value.open), high: Number(value.high), low: Number(value.low),
+      close: Number(value.close), volume: Number(value.volume),
+      vwap: Number(value.vwap), trades: Number(value.trades)
     };
   }
 
   function parseRestCandle(row) {
-    if (!Array.isArray(row) || row.length < 7) throw new Error("Invalid Bybit REST candle");
+    if (!Array.isArray(row) || row.length < 8) throw new Error("Invalid Kraken REST candle");
     return normalizeCandle({
-      start: row[0], open: row[1], high: row[2], low: row[3],
-      close: row[4], volume: row[5], turnover: row[6]
+      start: Number(row[0]) * 1000, open: row[1], high: row[2], low: row[3], close: row[4],
+      vwap: row[5], volume: row[6], trades: row[7]
     });
   }
 
-  function restCandleIsClosed(candle, intervalMinutes, serverTimeMs) {
-    return serverTimeMs >= candle.start + Number(intervalMinutes) * 60_000;
+  // Kraken guarantees that the last REST OHLC row is the current, uncommitted interval.
+  function parseRestHistory(rows) {
+    if (!Array.isArray(rows) || rows.length < 1) return [];
+    return rows.slice(0, -1).map(parseRestCandle);
   }
 
-  function parseConfirmedKlines(message) {
-    const match = /^kline\.(5|15|60)\.([A-Z0-9]+)$/.exec(String(message.topic || ""));
-    if (!match) return [];
-    return (Array.isArray(message.data) ? message.data : [])
-      .filter((item) => item.confirm === true)
-      .map((item) => ({ symbol: match[2], timeframe: match[1], candle: normalizeCandle(item) }));
+  function parseTicker(message) {
+    if (!message || message.channel !== "ticker" || !Array.isArray(message.data)) return [];
+    return message.data.map((item) => ({
+      symbol: String(item.symbol || ""), price: Number(item.last),
+      change24h: Number(item.change_pct), updatedAt: timestamp(item.timestamp)
+    })).filter((item) => item.symbol && Number.isFinite(item.price));
+  }
+
+  function parseOhlc(message) {
+    if (!message || message.channel !== "ohlc" || !Array.isArray(message.data)) return [];
+    return message.data.map((item) => ({
+      symbol: String(item.symbol || ""), timeframe: Number(item.interval),
+      candle: normalizeCandle({ ...item, start: item.interval_begin })
+    })).filter((item) => item.symbol && [5, 15, 60].includes(item.timeframe) && Number.isFinite(item.candle.start));
   }
 
   function upsertCandle(history, candle, limit) {
@@ -44,12 +57,46 @@
     return existing < 0;
   }
 
+  /* Advance one stream's forming candle. Only a later interval closes the previous one. */
+  function advanceForming(forming, update, history, limit) {
+    const next = normalizeCandle(update);
+    if (!forming) return { forming: next, closed: null, inserted: false };
+    if (next.start === forming.start) return { forming: next, closed: null, inserted: false };
+    if (next.start < forming.start) return { forming, closed: null, inserted: false };
+    const closed = normalizeCandle(forming);
+    return { forming: next, closed, inserted: upsertCandle(history, closed, limit) };
+  }
+
   function isStale(lastDataTime, staleAfterMs, now) {
     return !Number.isFinite(lastDataTime) || (now ?? Date.now()) - lastDataTime > staleAfterMs;
   }
 
+  function krakenMessageActivity(message) {
+    if (!message || typeof message !== "object") return { socket: false, market: false };
+    const hasData = Array.isArray(message.data) && message.data.length > 0;
+    const market = hasData && (message.channel === "ticker" || message.channel === "ohlc");
+    const control = message.channel === "heartbeat"
+      || (message.channel === "status" && hasData)
+      || message.method === "pong"
+      || (message.method === "subscribe" && message.req_id !== undefined);
+    return { socket: market || control, market };
+  }
+
+  function updateActivityTimes(times, message, now) {
+    const activity = krakenMessageActivity(message);
+    return {
+      lastSocketActivityTime: activity.socket ? now : times.lastSocketActivityTime,
+      lastMarketDataTime: activity.market ? now : times.lastMarketDataTime
+    };
+  }
+
+  function socketIsSilent(lastSocketActivityTime, staleAfterMs, now) {
+    return isStale(lastSocketActivityTime, staleAfterMs, now);
+  }
+
   global.CryptoScannerCore = Object.freeze({
-    isStale, normalizeCandle, parseConfirmedKlines, parseRestCandle,
-    restCandleIsClosed, upsertCandle
+    advanceForming, isStale, krakenMessageActivity, normalizeCandle, parseOhlc,
+    parseRestCandle, parseRestHistory, parseTicker, socketIsSilent,
+    updateActivityTimes, upsertCandle
   });
 }(window));
