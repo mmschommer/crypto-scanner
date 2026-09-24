@@ -21,3 +21,5 @@ th,td { border-top:1px solid var(--line); padding:15px 12px; text-align:right; w
 .events { list-style:none; margin:16px 0 0; padding:0; color:var(--muted); font:12px/1.8 ui-monospace,SFMono-Regular,Consolas,monospace; } .events time { display:inline-block; width:90px; } .events strong { color:var(--amber); margin-right:6px; }
 footer { color:var(--muted); text-align:center; padding:24px 0 0; font-size:12px; }
 @media (max-width:760px) { main { width:min(100% - 20px,1180px); padding-top:20px; } header { align-items:flex-start; } .status-grid { grid-template-columns:1fr 1fr; } .panel { padding:14px; } }
+.market-failed { background:#3a141b66; }
+.market-failed th small { color:#ff9ba5; }

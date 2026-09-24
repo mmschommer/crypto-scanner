@@ -1,8 +1,8 @@
 /* Bounded browser-local persistence and event logging. */
 (function (global) {
   "use strict";
-  const HISTORY_KEY = "crypto-scanner-v1-histories";
-  const LOG_KEY = "crypto-scanner-v1-logs";
+  const HISTORY_KEY = "crypto-scanner-v1.1-kraken-histories";
+  const LOG_KEY = "crypto-scanner-v1.1-kraken-logs";
 
   function read(key, fallback) {
     try {
