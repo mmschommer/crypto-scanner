@@ -1,0 +1,15 @@
+{
+  "symbols": ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "SUIUSDT"],
+  "timeframes": ["5", "15", "60"],
+  "history_limit": 200,
+  "stale_data_seconds": 45,
+  "dashboard_refresh_seconds": 1,
+  "rest_base_url": "https://api.bybit.com",
+  "websocket_url": "wss://stream.bybit.com/v5/public/linear",
+  "logging": {
+    "directory": "data/logs",
+    "level": "INFO",
+    "max_bytes": 5000000,
+    "backup_count": 3
+  }
+}
