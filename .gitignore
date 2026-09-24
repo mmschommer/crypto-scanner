@@ -1,13 +1,4 @@
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.coverage
-.venv/
-venv/
-env/
-data/logs/*
-!data/logs/.gitkeep
-*.log
-*.tmp
-*.pid
 .DS_Store
+Thumbs.db
+*.tmp
+*.log

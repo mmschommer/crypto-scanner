@@ -1,68 +1,74 @@
 # Local Cryptocurrency Market Scanner — Version 1
 
-A local, terminal-based monitoring foundation for Bybit USDT perpetual markets. It loads historical candles, consumes public live ticker and kline streams, retains bounded in-memory candle history, and displays BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, and SUIUSDT across 5-minute, 15-minute, and 1-hour timeframes.
+A zero-install, read-only browser dashboard for Bybit public USDT perpetual market data. It monitors BTC, ETH, SOL, XRP, and SUI using 5-minute, 15-minute, and 1-hour candles. It needs no API key, account, paid service, package manager, runtime installation, build step, or command line.
 
-This version is deliberately **read only**. It performs paper analysis only, has no brokerage integration, does not place trades, and contains no OpenAI or AI analysis. It uses Bybit's unauthenticated public REST and WebSocket market-data interfaces, so **no exchange API key or paid service is needed**.
+The scanner performs paper monitoring only. It has no brokerage connection, order execution, trading signals, OpenAI API calls, or AI inference.
 
-## Requirements
+## Open it — no installation
 
-- Python 3.10 or newer
-- Internet access to `api.bybit.com` and `stream.bybit.com`
+### Option A: open the file directly
 
-## Install
+1. Download or clone this repository using GitHub's normal web interface. A ZIP download is fine.
+2. If downloaded as a ZIP, extract it.
+3. Double-click `index.html` (or use **Open With** and choose a current browser).
+4. Leave the tab open while monitoring.
+5. Close the tab to stop the scanner.
 
-Run these exact commands from the repository root:
+There is nothing to install and no local server to start. The application uses classic scripts rather than JavaScript modules specifically so its own files can load from `file://`.
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python3 -m pip install -r requirements.txt
-```
+### Option B: GitHub Pages if the browser blocks `file://` market data
 
-## Start
+Browser security, privacy extensions, corporate policies, or Bybit regional controls can reject cross-origin REST or WebSocket traffic from a local-file (`null`) origin. The application reports this honestly as a history or connection warning. If that happens, use GitHub Pages—the simplest zero-install hosted option already built into GitHub:
 
-From the repository root, with the virtual environment activated:
+1. Push this existing branch to GitHub.
+2. In the repository on GitHub, open **Settings → Pages**.
+3. Under **Build and deployment**, choose **Deploy from a branch**.
+4. Select this branch, select the **`/ (root)`** folder, and click **Save**.
+5. Open the HTTPS address GitHub displays after deployment (normally `https://<owner>.github.io/<repository>/`).
 
-```bash
-python3 -m crypto_scanner --config config.json
-```
+This requires no local web server, runtime, package manager, or paid service. GitHub Pages serves the same static files over HTTPS. Network access to Bybit is still required, and Bybit may be unavailable in some regions.
 
-The initial REST bootstrap may take several seconds. The terminal is then refreshed once per second. Application/connection events are written to `data/logs/scanner.log`; newly received closed candles are written as JSON Lines to `data/logs/closed_candles.jsonl`.
+## What the dashboard shows
 
-## Stop
+For each configured market:
 
-Press **Ctrl+C** in the terminal running the scanner. The exact terminal key sequence is:
+- current public ticker price and 24-hour percentage change;
+- most recent finalized 5m, 15m, and 1h candle close;
+- latest ticker update time;
+- overall connection state, latest market-data time, and current data age.
 
-```text
-Ctrl+C
-```
+A prominent warning appears when the socket is disconnected or data becomes stale. The client sends Bybit JSON heartbeat pings, reconnects automatically with bounded exponential backoff, and resets a silent connection when no market data arrives.
 
-This requests a graceful WebSocket shutdown. No background service is installed.
+## Closed-candle correctness
 
-## Configuration
+- WebSocket klines enter completed history only when Bybit supplies `confirm === true`.
+- REST bootstrap candles enter history only when the response's Bybit server timestamp is at or beyond the candle's calculated end.
+- Histories are chronological, deduplicated by candle start time, and bounded to 200 candles by default.
 
-Edit `config.json` to configure symbols, minute-based timeframes (`60` means one hour), history depth, stale-data threshold, endpoints, dashboard refresh rate, and rotating-log settings. The defaults request 200 entries per symbol/timeframe and keep only candles proven closed:
+Historical candles and a bounded event log are stored in this browser's `localStorage`. **Clear local data** deletes only this application's locally saved candles and logs, then reloads the page. It does not affect Bybit or any account.
 
-- REST bootstrap candles are accepted only when the exchange server time is at or beyond the candle end.
-- Live WebSocket candles are accepted only when Bybit sends `confirm: true`.
-- The current forming candle is never inserted into completed-candle history.
+## Configuration and architecture
 
-The dashboard marks the feed stale when no data message arrives within the configured threshold. The WebSocket client logs disconnects and errors, then reconnects with bounded exponential backoff.
+`config.js` contains the symbols, timeframes, endpoints, stale threshold, heartbeat timing, history limit, reconnect cap, and local-log limit. All endpoints are public and unauthenticated.
 
-## Tests
+The code is intentionally separated:
 
-Tests require no network connection:
+- `core.js` — pure candle parsing, finalization, history, and freshness logic;
+- `storage.js` — browser-local history and event-log persistence;
+- `app.js` — Bybit REST/WebSocket transport and dashboard controller;
+- `index.html` and `styles.css` — accessible presentation;
+- `tests.js` and `tests.html` — browser-compatible tests.
 
-```bash
-python3 -m unittest discover -s tests -v
-```
+Future deterministic strategy modules can be added separately for swing highs/lows, liquidity sweeps, break of structure, retests, VWAP, volume filters, risk/reward, or paper trades. Candidate-only Codex review may be designed later; it is not present or invoked in Version 1.
 
-## Scope and future extension
+## Run the tests — no installation
 
-The package separates configuration, immutable models, parsing, state, exchange transport, logging, and presentation. Future versions can add swing points, liquidity sweeps, break of structure, retests, VWAP, volume analysis, risk/reward, paper-trade tracking, or review modules without mixing them into the transport layer. None of those strategy or automation features is implemented in Version 1.
+Double-click `tests.html`. The page runs the browser-compatible suite and shows a green result for each test. It covers confirmed versus unconfirmed candles, duplicate prevention, chronological ordering, bounded histories, stale-data calculation, and the REST close boundary.
 
-## Operational limitations
+## Privacy and limitations
 
-- Data is held in memory and resets at restart; logs persist locally.
-- Availability depends on Bybit public endpoints, network access, and any regional endpoint restrictions.
-- This is a monitor, not financial advice or an execution system.
+- The browser connects only to the public Bybit URLs in `config.js`; there are no credentials.
+- Data and event logs remain in the current browser profile's local storage.
+- Clearing site data, private browsing, or changing browser profiles removes persisted history.
+- The scanner must bootstrap again after local data is cleared.
+- Public endpoint availability, CORS policy, WebSocket policy, browser extensions, and regional availability remain outside this static application's control.
