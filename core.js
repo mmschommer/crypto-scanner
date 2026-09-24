@@ -71,8 +71,32 @@
     return !Number.isFinite(lastDataTime) || (now ?? Date.now()) - lastDataTime > staleAfterMs;
   }
 
+  function krakenMessageActivity(message) {
+    if (!message || typeof message !== "object") return { socket: false, market: false };
+    const hasData = Array.isArray(message.data) && message.data.length > 0;
+    const market = hasData && (message.channel === "ticker" || message.channel === "ohlc");
+    const control = message.channel === "heartbeat"
+      || (message.channel === "status" && hasData)
+      || message.method === "pong"
+      || (message.method === "subscribe" && message.req_id !== undefined);
+    return { socket: market || control, market };
+  }
+
+  function updateActivityTimes(times, message, now) {
+    const activity = krakenMessageActivity(message);
+    return {
+      lastSocketActivityTime: activity.socket ? now : times.lastSocketActivityTime,
+      lastMarketDataTime: activity.market ? now : times.lastMarketDataTime
+    };
+  }
+
+  function socketIsSilent(lastSocketActivityTime, staleAfterMs, now) {
+    return isStale(lastSocketActivityTime, staleAfterMs, now);
+  }
+
   global.CryptoScannerCore = Object.freeze({
-    advanceForming, isStale, normalizeCandle, parseOhlc, parseRestCandle,
-    parseRestHistory, parseTicker, upsertCandle
+    advanceForming, isStale, krakenMessageActivity, normalizeCandle, parseOhlc,
+    parseRestCandle, parseRestHistory, parseTicker, socketIsSilent,
+    updateActivityTimes, upsertCandle
   });
 }(window));

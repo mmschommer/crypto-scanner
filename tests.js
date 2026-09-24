@@ -50,6 +50,25 @@
   test("stale data boundary still works", () => {
     equal(core.isStale(1000, 500, 1500), false); equal(core.isStale(1000, 500, 1501), true); equal(core.isStale(NaN, 500, 1500), true);
   });
+  test("heartbeat updates socket activity", () => {
+    const times = core.updateActivityTimes({ lastSocketActivityTime: 100, lastMarketDataTime: 200 }, { channel: "heartbeat" }, 1000);
+    equal(times.lastSocketActivityTime, 1000);
+  });
+  test("heartbeat does not update market-data time", () => {
+    const times = core.updateActivityTimes({ lastSocketActivityTime: 100, lastMarketDataTime: 200 }, { channel: "heartbeat" }, 1000);
+    equal(times.lastMarketDataTime, 200);
+  });
+  test("market update updates socket and market-data activity", () => {
+    const times = core.updateActivityTimes({ lastSocketActivityTime: 100, lastMarketDataTime: 200 }, { channel: "ticker", data: [{ symbol: "BTC/USD" }] }, 1000);
+    equal(times, { lastSocketActivityTime: 1000, lastMarketDataTime: 1000 });
+  });
+  test("recent heartbeat prevents reset despite stale market data", () => {
+    const times = core.updateActivityTimes({ lastSocketActivityTime: 100, lastMarketDataTime: 100 }, { channel: "heartbeat" }, 950);
+    equal([core.isStale(times.lastMarketDataTime, 500, 1000), core.socketIsSilent(times.lastSocketActivityTime, 500, 1000)], [true, false]);
+  });
+  test("old socket activity triggers connection-stale behavior", () => {
+    equal(core.socketIsSilent(100, 500, 601), true);
+  });
 
   let passed = 0;
   const list = document.getElementById("results");

@@ -6,7 +6,8 @@
   const store = window.ScannerStorage;
   const state = {
     histories: {}, forming: {}, tickers: {}, failedMarkets: new Map(),
-    connection: "STARTING", lastDataTime: NaN, socket: null, reconnectTimer: null,
+    connection: "STARTING", lastMarketDataTime: NaN, lastSocketActivityTime: NaN,
+    socket: null, reconnectTimer: null,
     reconnectDelay: 1_000, heartbeatTimer: null, staleLogged: false,
     nextRequestId: 1, subscriptions: new Map()
   };
@@ -39,10 +40,10 @@
     const history = state.histories[`${symbol}:${timeframe}`];
     return history.length ? history[history.length - 1].close : null;
   }
-  function currentAge() { return Number.isFinite(state.lastDataTime) ? Math.max(0, Date.now() - state.lastDataTime) : NaN; }
+  function currentAge() { return Number.isFinite(state.lastMarketDataTime) ? Math.max(0, Date.now() - state.lastMarketDataTime) : NaN; }
 
   function render() {
-    const stale = core.isStale(state.lastDataTime, config.staleAfterMs);
+    const stale = core.isStale(state.lastMarketDataTime, config.staleAfterMs);
     const disconnected = state.connection !== "CONNECTED";
     const failures = [...state.failedMarkets.entries()];
     const warning = document.getElementById("warning");
@@ -54,7 +55,7 @@
     const badge = document.getElementById("connection");
     badge.textContent = stale && !disconnected ? "STALE" : state.connection;
     badge.className = `badge ${stale || disconnected || failures.length ? "bad" : "good"}`;
-    document.getElementById("latest-time").textContent = formatTime(state.lastDataTime);
+    document.getElementById("latest-time").textContent = formatTime(state.lastMarketDataTime);
     document.getElementById("data-age").textContent = Number.isFinite(currentAge()) ? `${(currentAge() / 1000).toFixed(1)}s` : "—";
 
     document.getElementById("markets").innerHTML = config.symbols.map((market) => {
@@ -142,6 +143,9 @@
   function handleMessage(event) {
     let message;
     try { message = JSON.parse(event.data); } catch (_) { return; }
+    const activityTimes = core.updateActivityTimes(state, message, Date.now());
+    state.lastSocketActivityTime = activityTimes.lastSocketActivityTime;
+    state.lastMarketDataTime = activityTimes.lastMarketDataTime;
     if (message.channel === "heartbeat" || message.method === "pong") return;
     if (message.channel === "status") {
       const status = message.data && message.data[0] && message.data[0].system;
@@ -153,12 +157,11 @@
     const tickers = core.parseTicker(message);
     const candles = core.parseOhlc(message);
     if (!tickers.length && !candles.length) return;
-    state.lastDataTime = Date.now();
     for (const update of tickers) {
       const ticker = state.tickers[update.symbol];
       if (!ticker) continue;
       ticker.price = update.price; ticker.change24h = update.change24h;
-      ticker.updatedAt = Number.isFinite(update.updatedAt) ? update.updatedAt : state.lastDataTime;
+      ticker.updatedAt = Number.isFinite(update.updatedAt) ? update.updatedAt : state.lastMarketDataTime;
     }
     for (const update of candles) {
       const key = `${update.symbol}:${update.timeframe}`;
@@ -198,6 +201,7 @@
     socket.addEventListener("open", () => {
       if (socket !== state.socket) return;
       state.connection = "CONNECTED"; state.reconnectDelay = 1_000;
+      state.lastSocketActivityTime = Date.now();
       for (const market of config.symbols) {
         subscribe(socket, "ticker", market.kraken);
         for (const timeframe of config.timeframes) subscribe(socket, "ohlc", market.kraken, timeframe);
@@ -229,8 +233,10 @@
 
   renderLogs(); render(); connect(); bootstrap();
   setInterval(() => {
-    if (state.socket && state.socket.readyState === WebSocket.OPEN && core.isStale(state.lastDataTime, config.staleAfterMs * 2)) {
-      log("WARN", "silent-connection-reset", "No market data received"); state.socket.close(4000, "Stale data");
+    if (state.socket && state.socket.readyState === WebSocket.OPEN
+      && core.socketIsSilent(state.lastSocketActivityTime, config.staleAfterMs * 2)) {
+      log("WARN", "silent-connection-reset", "No Kraken WebSocket activity received");
+      state.socket.close(4000, "Socket silence");
     }
     render();
   }, 1_000);

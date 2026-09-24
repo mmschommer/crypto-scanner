@@ -28,7 +28,7 @@ Completed histories are chronological, deduplicated by interval start, and bound
 
 ## Resilience and status
 
-The dashboard shows connection state, latest data time, data age, REST bootstrap status, and local events. It handles Kraken status, subscription acknowledgments, heartbeat messages, protocol ping/pong, stale data, automatic reconnect, and bounded exponential backoff. A silent socket is reset after twice the configured stale threshold.
+The dashboard shows connection state, latest market-data time, market-data age, REST bootstrap status, and local events. Market freshness and socket health use separate timestamps: ticker/OHLC messages update both, while Kraken status, subscription acknowledgments, heartbeats, and pong messages update socket activity only. A quiet market can therefore display **STALE MARKET DATA** without being called disconnected. Automatic reconnect with bounded exponential backoff resets a socket only when the socket itself is silent after twice the configured stale threshold.
 
 ## Files
 
@@ -41,7 +41,7 @@ The dashboard shows connection state, latest data time, data age, REST bootstrap
 
 ## Run tests — no installation
 
-Double-click `tests.html`. A green **10/10 tests passed** confirms ticker and OHLC parsing, forming-candle handling, exactly-once finalization, deduplication, ordering, bounds, exclusion of the final REST row, and stale-data behavior. The tests use local fixtures and make no network requests.
+Double-click `tests.html`. A green **15/15 tests passed** confirms ticker and OHLC parsing, forming-candle handling, exactly-once finalization, deduplication, ordering, bounds, exclusion of the final REST row, market freshness, and independent socket-health behavior. The tests use local fixtures and make no network requests.
 
 ## Privacy and limitations
 
